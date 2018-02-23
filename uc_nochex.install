@@ -1,0 +1,125 @@
+<?php
+/**
+ * @file
+ * Handles installation of uc_nochex payment module.
+ *
+ */
+
+/**
+ * Implementation of hook_requirements().
+ */
+function uc_nochex_requirements($phase) {
+  $t = get_t();
+  $has_curl = function_exists('curl_init');
+  
+  $curl_version = '';
+  if ($has_curl) {
+    $curl_version_array = curl_version();
+    $curl_version = $curl_version_array['version'];
+  }
+  
+  $requirements['uc_nochex_curl'] = array(
+    'title' => t('cURL'),
+    'value' => ($phase == 'runtime') ? (($has_curl) ? t('Enabled') .' (v'. $curl_version .')' : t('Not found')) : NULL,
+  );
+  
+  if (!$has_curl) {
+      $requirements['uc_nochex_curl']['severity'] = REQUIREMENT_ERROR;
+      $requirements['uc_nochex_curl']['description'] = t("Nochex requires the PHP <a href='!curl_url'>cURL</a> library.", array('!curl_url' => 'http://php.net/manual/en/curl.setup.php'));
+  }
+  return $requirements;
+}
+
+
+/**
+ * Implementation of hook_install().
+ */
+function uc_nochex_install() {
+  $title=t('Nochex pending');
+  db_insert('uc_order_statuses')
+  ->fields(array(
+  	'order_status_id' => 'nochex_pending',
+  	'title' => $title,
+  	'state' => 'payment_received',
+  	'weight' => 7,
+  	'locked' => 1
+  ))
+  ->execute();
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function uc_nochex_uninstall() {
+  db_delete('uc_order_statuses')
+  ->condition('order_status_id', 'nochex_pending')
+  ->execute();
+} 
+
+/**
+ * Implementation of hook_schema().
+ */
+function uc_nochex_schema() {
+  $schema['uc_nochex_apc'] = array(
+    'description' => 'Logs Nochex Automatic Payment Confirmations.',
+    'fields' => array(
+      'transaction_id' => array(
+        'description' => 'Unique transaction id from Nochex.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'order_id' => array(
+        'description' => 'Ubercart order ID received from Nochex.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'transaction_date' => array(
+        'description' => 'Date/time of the transaction from Nochex.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'amount' => array(
+        'description' => 'The payment amount from Nochex.',
+        'type' => 'numeric',
+        'precision' => 7,
+        'scale' => 2,
+        'not null' => TRUE,
+      ),
+      'apc_response' => array(
+        'description' => 'The Nochex APC response (Accepted/Declined/Invalid).',
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+      ),
+      'apc_status' => array(
+        'description' => 'The Nochex APC status (Live/Test).',
+        'type' => 'char',
+        'length' => 4,
+        'not null' => TRUE,
+      ),
+      'from_email' => array(
+        'description' => 'The e-mail address of the payment recipient.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'to_email' => array(
+        'description' => 'The e-mail address of the payment sender.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+    ),
+    'primary key' => array('transaction_id'),
+    'indexes' => array(
+      'order_id' => array('order_id'),
+    ),
+  );
+
+  return $schema;
+}

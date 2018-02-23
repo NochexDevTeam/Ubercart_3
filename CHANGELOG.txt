@@ -1,0 +1,47 @@
+Ubercart Nochex Payments 7.x-3.x
+--------------------------------
+24/03/2015 Updated Nochex module
+
+uc_nochex.module 
+
+Includes new features: Detailed Product Information, Postage, Description details of products ordered.
+
+uc_nochex_apc.inc
+
+More notes relating to test transactions, and whether APC was Authorised / Declined which should show in the Order details.
+
+Ubercart Nochex Payments 7.x-1.x
+--------------------------------
+
+30/04/11 Initial port to Drupal 7 by Edwin Wills (ewills)
+30/04/11 Merged in 6.x-1.1 changes (bscott)
+02/05/11 Apply patches from ewills:-
+    update .module file
+    fix install/uninstall
+04/05/11 Change admin form descriptions
+04/05/11 uc_nochex_payment_description variable added
+04/05/11 Changed 'APN' to 'APC' in log messages
+
+Ubercart Nochex Payments 6.x-1.1
+--------------------------------
+
+uc_nochex.module
+
+Untranslated strings wrapped in t() call.
+
+uc_payment_method_nochex_admin:
+
+uc_nochex_debug_apc default always FALSE. Changed to variable_get('uc_nochex_debug_apc', FALSE)
+
+uc_nochex.install
+
+function uc_nochex_requirements: $requirements array value not set in install phase
+$has_curl set to function_exists('curl_init')
+cURL status now shows curl version
+
+
+uc_nochex_apc.inv
+
+CURLOPT_POSTFIELDSIZE being set to 0. Changed to -1.
+
+(PC date fixed)

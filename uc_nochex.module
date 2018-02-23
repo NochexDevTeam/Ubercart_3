@@ -1,0 +1,305 @@
+<?php
+
+/**
+ * @file
+ * Integrates Nochex payment services and Automatic Payment Confirmation
+ * (APC) with Ubercart.
+ *
+ * For details about Nochex visit http://www.nochex.com
+ *
+ * For further information on APC visit http://esupport.nochex.com/index.php?_m=knowledgebase&_a=viewarticle&kbarticleid=32
+ */
+
+
+require_once dirname(__FILE__) . '/uc_nochex_apc.inc';
+
+/*
+ * Hook Functions (Drupal)
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function uc_nochex_menu() {
+  $items['uc_nochex/apc'] = array(
+    'title' => 'Ubercart Nochex APC callback',
+    'page callback' => 'uc_nochex_apc',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_nochex_apc.inc',
+  );
+  $items['uc_nochex/callback'] = array(
+    'title' => 'Ubercart Nochex APC callback',
+    'page callback' => 'uc_nochex_callback',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_nochex_callback.inc',
+  );
+ $items['uc_nochex/callbacksuccess'] = array(
+    'title' => 'Ubercart Nochex success callback',
+    'page callback' => 'uc_nochex_callback_success',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_nochex_apc.inc',      
+  );
+  $items['uc_nochex/callbackcancel'] = array(
+    'title' => 'Ubercart Nochex cancel callback',
+    'page callback' => 'uc_nochex_callback_cancel',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_nochex_apc.inc',      
+  );
+  $items['uc_nochex/success'] = array(
+    'title' => 'Ubercart Nochex success callback',
+    'page callback' => 'uc_nochex_success',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_nochex_apc.inc',      
+  );
+  $items['uc_nochex/cancel'] = array(
+    'title' => 'Ubercart Nochex cancel callback',
+    'page callback' => 'uc_nochex_cancel',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+    'file' => 'uc_nochex_apc.inc',      
+  );
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function uc_nochex_form_alter(&$form, $form_state, $form_id) {
+  if ($form_id == 'uc_cart_checkout_review_form' && ($order_id = intval($_SESSION['cart_order'])) > 0) {
+    $order = uc_order_load($order_id);
+
+    if ($order->payment_method == 'nochex') {
+      $form_state['uc_nochex']['order'] = $order;
+      _uc_nochex_add_form_elements($form, $order);  
+    }
+  }
+}
+
+/**
+ * Implementation of hook_help().
+ */
+function uc_nochex_help($path, $arg) {
+  if ($path != 'admin/help#uc_nochex') {
+    return;
+  }
+  $link = 'http://www.nochex.com';  
+
+  $text = t('The Nochex payment module provides Ubercart with a <a href="@nochex_url">Nochex</a> payment facility with Automatic Payment Confirmation. ', array('@nochex_url' => $link));
+  $text .= t('<a href="@nochex_url">Nochex</a> is a UK based online payment company, specialising in providing smaller online businesses with simple, accessible, easy to use, online payment services.', array('@nochex_url' => $link));    
+  return '<p>'. $text .'</p>';
+}
+
+/*
+ * Hook Functions (Ubercart)
+ */
+
+/**
+ * Implementation of hook_uc_payment_method().
+ */
+function uc_nochex_uc_payment_method() {
+
+  $title = '<br/><img src="https://www.nochex.com/logobase-secure-images/logobase-banners/clear-amex-mp.png" height="80">';
+  
+  $methods[] = array(
+    'id' => 'nochex',
+    'name' => t('Nochex'),
+    'title' => $title,
+    'review' => t('Nochex'),
+    'desc' => t('Redirect users to submit payments through Nochex.'),
+    'callback' => 'uc_payment_method_nochex_admin',
+    'weight' => 3,
+    'checkout' => FALSE,
+    'no_gateway' => TRUE,
+  );
+
+  return $methods;
+}
+
+
+/**
+ * Callback for Nochex payment method settings.
+ */
+function uc_payment_method_nochex_admin($op, &$arg1, $form = NULL, &$form_state = NULL) {
+  switch ($op) {
+    case 'order-view':
+	
+	 $build = array('#suffix' => '<br /><img src="https://www.nochex.com/logobase-secure-images/logobase-banners/clear-amex-mp.png" height="80">');
+	
+	return $build;
+	case 'customer-view':
+      $result = db_query("SELECT transaction_id,amount FROM {uc_nochex_apc} WHERE order_id = :order_id ORDER BY transaction_date ASC", array(':order_id' => $arg1->order_id));
+      foreach ($result as $row) {
+      	return t('Transaction @transaction_id: @amount', array('@transaction_id' => $row->transaction_id, '@amount' => uc_currency_format($row->amount))); 
+      }
+    case 'settings':
+      
+	  $form['uc_nochex_sid'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Nochex email address'),
+        '#description' => t('The Nochex merchant id required to identify your account.'),
+        '#default_value' => variable_get('uc_nochex_sid', ''),
+      );
+	  
+	  $form['uc_nochex_debug_apc'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Debug APC callback'),
+        '#description' => t('Display debug information in log'),
+        '#default_value' => variable_get('uc_nochex_debug_apc', FALSE),
+      );
+	  
+	  $form['uc_nochex_callback'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Callback'),
+        '#description' => t('To use the callback functionality. Please contact Nochex Support to enable this functionality on your merchant account otherwise this feature wont work!'),
+        '#default_value' => variable_get('uc_nochex_callback', FALSE),
+      );
+	  
+      $form['uc_nochex_test'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable test mode'),
+        '#description' => t('If this feature is enabled, you will be able to test the module is working. NB: Disable this feature to accept live transactions!'),
+        '#default_value' => variable_get('uc_nochex_test', FALSE),
+      );
+	  
+	  $form['uc_nochex_hidebilling'] = array(
+        '#type' => 'checkbox',
+        '#title' => t("Hide billing address"),
+		'#description' => t("Hide the customer's billing details so they are not able to change their details when they are sent to Nochex. NB: Place a note on your checkout page to inform the customer to check their billing details as they wont be asked for them again."),
+        '#default_value' => variable_get('uc_nochex_hidebilling', FALSE),
+      );
+      
+	   $form['uc_nochex_postage'] = array(
+        '#type' => 'checkbox',
+        '#title' => t("Show Postage"),
+		'#description' => t("Show postage separately from the total amount that is shown on the Nochex payment page."),
+        '#default_value' => variable_get('uc_nochex_postage', FALSE),
+      );
+	  
+	   $form['uc_nochex_xmlCollection'] = array(
+        '#type' => 'checkbox',
+        '#title' => t("Detailed Product Information"),
+		'#description' => t("Display your product details in a structured format on your Nochex payment page."),
+        '#default_value' => variable_get('uc_nochex_hidebilling', FALSE),
+      );
+
+    return $form;
+  }
+}
+
+/*
+ * Add Nochex payment submission fields to form
+ *
+ * @param
+ * $form
+ * The form
+ * $order
+ * The order
+ *
+ */
+function _uc_nochex_add_form_elements(&$form, $order) { 
+ 
+
+
+	/* XML Collection */
+	if (variable_get('uc_nochex_xmlCollection', TRUE) == "1") {
+
+	$xmlCollection = "<items>";
+
+	foreach ($order->products as $product) {
+
+	$xmlCollection .= "<item><id></id><name>".$product->title."</name><description>Product: ". $product->title  .", Model: ".$product->model."</description><quantity>".$product->qty."</quantity><price>".uc_currency_format($product->price, FALSE, FALSE, '.')."</price></item>";
+
+	}
+
+	$xmlCollection .= "</items>";
+
+	$description = "Order created for : " . $order->order_id;
+	}else{
+
+	  $description = "";
+		
+	  foreach ($order->products as $product) {
+	  
+		$description.= "Product: " . $product->title . ", Quantity: " . $product->qty . ", Product: ". $product->title  .", Model: " . $product->model . ", Amount: " . uc_currency_format($product->price, FALSE, FALSE, '.') . ". ";
+	  }
+	$xmlCollection = "";
+	}
+
+
+	/* Postage */
+	if (variable_get('uc_nochex_postage', TRUE) == "1") {
+
+	  if (is_array($order->line_items)) {
+		foreach ($order->line_items as $item) {
+		  if ($item['type'] == 'shipping') {
+			$shipping = uc_currency_format($item['amount'], FALSE, FALSE, '.');
+		  }
+		}
+	  }
+
+	$amount = uc_currency_format($order->order_total, FALSE, FALSE, '.') - $shipping;
+	}else{
+
+	$shipping = "";
+	$amount = uc_currency_format($order->order_total, FALSE, FALSE, '.');
+	}
+	
+	/* Callback Check */
+	if (variable_get('uc_nochex_callback', TRUE) == "1") {
+	   $callback_url  = url('uc_nochex/callback', array('absolute' => TRUE));
+	   
+	   
+	}else{  
+	   $callback_url  = url('uc_nochex/apc', array('absolute' => TRUE));
+	  
+	}
+		
+		$cancel_url = url('uc_nochex/cancel/' . $order->order_id, array('absolute' => TRUE));
+	   $success_url = url('uc_nochex/success/' . $order->order_id, array('absolute' => TRUE));
+	   
+	   
+	watchdog('uc_nochex', 'APC callback: %callback', array('%callback' => $callback_url));
+	
+	$data = array(
+    'merchant_id' => variable_get('uc_nochex_sid', ''),
+    'description' => $description,
+    'postage' => $shipping,
+    'xml_item_collection' => $xmlCollection,
+    'amount' => $amount,
+    'order_id' => $order->order_id,
+    'optional_1' => uc_cart_get_id(), 
+	'billing_fullname' =>drupal_substr($order->billing_first_name .' '. $order->billing_last_name, 0, 128),
+	'billing_address' =>drupal_substr($order->billing_street1 .' '. $order->billing_street2 , 0, 256),
+	'billing_city' => drupal_substr($order->billing_city, 0, 128),
+	'billing_postcode' =>drupal_substr($order->billing_postal_code, 0, 16),
+    'delivery_fullname' =>  drupal_substr($order->delivery_first_name .' '. $order->delivery_last_name, 0, 128),
+    'delivery_address' => drupal_substr($order->delivery_street1 .' '. $order->delivery_street2 , 0, 256),
+	'delivery_city' => drupal_substr($order->delivery_city, 0, 128),
+    'delivery_postcode' => drupal_substr($order->delivery_postal_code, 0, 16),
+    'customer_phone_number' => drupal_substr($order->delivery_phone, 0, 16),  
+    'email_address' => drupal_substr($order->primary_email, 0, 64),
+    'hide_billing_details' => variable_get('uc_nochex_hidebilling', TRUE) ? 'true' : 'false',  
+	'callback_url' => $callback_url,
+	'cancel_url' => $cancel_url,
+	);
+
+	/* Test Mode Check */
+	if (variable_get('uc_nochex_test', TRUE) == "1") {
+	$data['test_transaction'] = '100';
+    $data['test_success_url'] = $success_url;
+	}else{
+	$data['success_url'] = $success_url; 
+	}
+  
+  $form['#action'] = 'https://secure.nochex.com/default.aspx';
+
+  foreach ($data as $name => $value) {
+    $form[$name] = array('#type' => 'hidden', '#value' => $value);
+  }
+
+}

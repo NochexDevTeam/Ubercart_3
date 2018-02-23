@@ -1,0 +1,25 @@
+name = Nochex
+description = Process Ubercart payments using nochex.com.
+
+package = Ubercart - payment
+dependencies[]=uc_payment
+
+version = "7.x-1.dev"
+core = "7.x"
+project = "uc_nochex"
+datestamp = "1255033582"
+
+
+; Information added by drupal.org packaging script on 2011-04-30
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "uc_nochex"
+datestamp = "1304165834"
+
+
+; Information added by drupal.org packaging script on 2013-10-19
+version = "7.x-1.x-dev"
+core = "7.x"
+project = "uc_nochex"
+datestamp = "1382149416"
+
