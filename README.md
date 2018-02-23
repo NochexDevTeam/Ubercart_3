@@ -3,7 +3,7 @@ Nochex Module for Ubercart
 
 Installation
 ============
-To Install and Setup the Nochex module please follow our integration guide, which can be found here: https://support.nochex.com/kb/faq.php?id=155
+To Install and Setup the Nochex module please follow our integration guide, which can be found <a href="https://support.nochex.com/kb/faq.php?id=155">here</a>
 
 Support
 =====================
