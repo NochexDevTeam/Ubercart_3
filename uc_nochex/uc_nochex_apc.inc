@@ -37,7 +37,7 @@ $debug .= "\r\nRESPONSE:\r\n$output";
 
 
 //If statement
-if (!strstr($output, "AUTHORISED")) {  // searches response to see if AUTHORISED is present if it isn’t a failure message is displayed
+if (!strstr($output, "AUTHORISED")) {  // searches response to see if AUTHORISED is present if it isnâ€™t a failure message is displayed
     $msg = "APC was not AUTHORISED.\r\n\r\n$debug";  
 	
 	$amount = $_POST['amount'];
