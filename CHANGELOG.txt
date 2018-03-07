@@ -1,5 +1,17 @@
 Ubercart Nochex Payments 7.x-3.x
 --------------------------------
+07/03/2018 - Updated Nochex Module
+
+uc_nochex_apc.inc
+
+* Removed duplicate code, and fixed a bug causing Confirmation emails to be sent out twice.
+
+uc_nochex_callback.inc
+
+* Removed duplicate code, and fixed a bug causing Confirmation emails to be sent out twice.
+
+---------------------------------
+
 24/03/2015 Updated Nochex module
 
 uc_nochex.module 
