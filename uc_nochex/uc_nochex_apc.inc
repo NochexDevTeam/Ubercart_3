@@ -1,103 +1,75 @@
 <?php
-// $Id: uc_nochex_apc.inc,v 1.2 19/04/2013 12:32:00 miveson Exp $
+// $Id: uc_nochex_apc.inc,v 1.3 07/03/2018 12:32:00 miveson Exp $
 /*
  * @file
- * Process Nochex APC callback
+ * Process Nochex APC
  *
  * @param
  * None
  *
  */
-  function uc_nochex_apc() {
+function uc_nochex_apc() {
   
-// Get the POST information from Nochex server
-$postvars = http_build_query($_POST);
+function http_post($server, $port, $url, $vars) { 
+    // get urlencoded vesion of $vars array 
+    $urlencoded = ""; 
+    foreach ($vars as $Index => $Value) // loop round variables and encode them to be used in query
+    $urlencoded .= urlencode($Index ) . "=" . urlencode($Value) . "&"; 
+    $urlencoded = substr($urlencoded,0,-1);   // returns portion of string, everything but last character
 
-// Set parameters for the email
-$to = $_POST['from_email'];
+    $headers1 = "POST $url HTTP/1.0\r\n"  // headers to be sent to the server
+    . "Content-Type: application/x-www-form-urlencoded\r\n" 
+	. "Host: www.nochex.com\r\n"
+    . "Content-Length: ". strlen($urlencoded) . "\r\n\r\n";  // length of the string
+  
+    $fp = fsockopen($server, $port, $errno, $errstr, 10);  // returns file pointer
+    if (!$fp) return "ERROR: fsockopen failed.\r\nError no: $errno - $errstr";  // if cannot open socket then display error message
 
-$url = "https://www.nochex.com/apcnet/apc.aspx";
+    fputs($fp, $headers1);  //writes to file pointer
+    fputs($fp, $urlencoded);  
+  
+    $ret = ""; 
+    while (!feof($fp)) $ret .= fgets($fp, 1024); // while it’s not the end of the file it will loop 
+    fclose($fp);  // closes the connection
+    return $ret; // array 
+    } 
 
-$ch = curl_init ();
-curl_setopt ($ch, CURLOPT_URL, $url);
-curl_setopt ($ch, CURLOPT_POST, true); 
-curl_setopt ($ch, CURLOPT_POSTFIELDS, $postvars);
-curl_setopt ($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt ($ch, CURLOPT_SSLVERSION, 6);
-curl_setopt ($ch, CURLOPT_SSL_VERIFYHOST, false);
-curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, 0);
-$output = curl_exec ($ch);
-curl_close ($ch);
+/* Do a post to the following url and receive a response.*/
+$response = http_post("www.nochex.com", 80, "/apcnet/apc.aspx", $_POST); 
 
-// Put the variables in a printable format for the email
+/* Debug */
 $debug = "IP -> " . $_SERVER['REMOTE_ADDR'] ."\r\n\r\nPOST DATA:\r\n"; 
 foreach($_POST as $Index => $Value) 
 $debug .= "$Index -> $Value\r\n"; 
-$debug .= "\r\nRESPONSE:\r\n$output";
+$debug .= "\r\nRESPONSE:\r\n$response";
+
+/* variables */
+$amount = $_POST['amount'];
+$transaction_id = $_POST['transaction_id'];
+$comment = t('Nochex transaction ID: @transaction_id', array('@transaction_id' => $transaction_id));
 
 
-//If statement
-if (!strstr($output, "AUTHORISED")) {  // searches response to see if AUTHORISED is present if it isn’t a failure message is displayed
+// Checks the response to see if AUTHORISED is present if it isn’t a failure message is displayed
+if ($response == "AUTHORISED") {  
     $msg = "APC was not AUTHORISED.\r\n\r\n$debug";  
-	
-	$amount = $_POST['amount'];
-    $transaction_id = $_POST['transaction_id'];
-	
-	uc_cart_empty(uc_cart_get_id());
-    uc_cart_complete_sale($_POST['order_id']);
-     
-	$comment = t('Nochex transaction ID: @transaction_id', array('@transaction_id' => $transaction_id));
-	
-	if($_POST['status'] == "Test" || $_POST['status'] == "test"){
-	
-	uc_order_comment_save($_POST['order_id'], 0, t('This was a test transaction.'), 'admin');
-	
-	}
-	uc_payment_enter($_POST['order_id'], 'nochex', $amount, 1, NULL, $comment);
-    uc_order_comment_save($_POST['order_id'], 0, t('APC was not AUTHORISED.'), 'admin');
-	
-	uc_order_comment_save($_POST['order_id'], 0, t('@amount submitted through Nochex with transaction ID @transaction', array('@amount' => uc_currency_format($amount, FALSE), '@transaction' => $transaction_id)), 'order', 'payment_received', TRUE);
-     
-} 
-else { 
-    $msg = "APC was AUTHORISED.\r\n\r\n$debug"; 
-	
-	$amount = $_POST['amount'];
-    $transaction_id = $_POST['transaction_id'];
-	
-	uc_cart_empty(uc_cart_get_id());
-    uc_cart_complete_sale($_POST['order_id']);
-     
-	$comment = t('Nochex transaction ID: @transaction_id', array('@transaction_id' => $transaction_id));
-    	
-	
-	if($_POST['status'] == "Test" || $_POST['status'] == "test"){
-	
-	uc_order_comment_save($_POST['order_id'], 0, t('This was a test transaction.'), 'admin');
-	
-	}
-	
-	uc_payment_enter($_POST['order_id'], 'nochex', $amount, 1, NULL, $comment);
-    uc_order_comment_save($_POST['order_id'], 0, t('APC was AUTHORISED.'), 'admin');
-		
-	uc_order_comment_save($_POST['order_id'], 0, t('@amount submitted through Nochex with transaction ID @transaction', array('@amount' => uc_currency_format($amount, FALSE), '@transaction' => $transaction_id)), 'order', 'payment_received', TRUE);
-      
+		       
+} else { 
+    $msg = "APC was AUTHORISED.";      
+    	 
 }
 
-/*   $apcInsert = db_insert('uc_nochex_apc')->fields(array(
-        'amount' => $_POST['amount'],
-        'apc_response' => $msg,
-        'apc_status' => 'payment_received',
-        'from_email' => $_POST['from_email'],
-        'order_id' => $_POST['order_id'],
-        'to_email' => $_POST['to_email'],
-        'transaction_date' =>  $_POST['transaction_date'],
-        'transaction_id' =>  $_POST['transaction_id'],))->execute();
-
-$msg .= $apcInsert;*/
-
-//Email the response
-mail( $to, 'APC', $msg);
+// Adds the returned values and updates the payment details for a particular order.
+	uc_payment_enter($_POST['order_id'], 'nochex', $amount, $_POST['custom'], NULL, $comment);
+	
+// Checks to see if the order / payment was a test, and if it is then update the order with a comment.	
+if($_POST['status'] == "Test" || $_POST['status'] == "test"){
+	
+	uc_order_comment_save($_POST['order_id'], 0, t('This was a test transaction.'), 'admin');
+	
+}
+/* Save order and update comments*/
+	uc_order_comment_save($_POST['order_id'], 0, $msg, 'admin');
+	uc_order_comment_save($_POST['order_id'], 0, t('@amount submitted through Nochex with transaction ID @transaction', array('@amount' => uc_currency_format($amount, FALSE), '@transaction' => $transaction_id)), 'order', 'payment_received', FALSE);
 
 }
 
@@ -113,8 +85,6 @@ function uc_nochex_success($order_id=0, $test='true') {
 
 function uc_nochex_cancel() {
   unset($_SESSION['cart_order']);
-
   drupal_set_message(t('Your Nochex payment was cancelled. Please feel free to continue shopping or contact us for assistance.'));
-
   drupal_goto('cart');
 }
