@@ -103,7 +103,7 @@ function uc_nochex_help($path, $arg) {
  */
 function uc_nochex_uc_payment_method() {
 
-  $title = '<br/><img src="https://www.nochex.com/logobase-secure-images/logobase-banners/clear-amex-mp.png" height="80">';
+  $title = '<br/><img src="https://www.nochex.com/logobase-secure-images/logobase-banners/clear.png" height="80">';
   
   $methods[] = array(
     'id' => 'nochex',
@@ -128,7 +128,7 @@ function uc_payment_method_nochex_admin($op, &$arg1, $form = NULL, &$form_state 
   switch ($op) {
     case 'order-view':
 	
-	 $build = array('#suffix' => '<br /><img src="https://www.nochex.com/logobase-secure-images/logobase-banners/clear-amex-mp.png" height="80">');
+	 $build = array('#suffix' => '<br /><img src="https://www.nochex.com/logobase-secure-images/logobase-banners/clear.png" height="80">');
 	
 	return $build;
 	case 'customer-view':
