@@ -19,7 +19,7 @@ function http_post($server, $port, $url, $vars) {
 
     $headers1 = "POST $url HTTP/1.0\r\n"  // headers to be sent to the server
     . "Content-Type: application/x-www-form-urlencoded\r\n" 
-	. "Host: www.nochex.com\r\n"
+	. "Host: secure.nochex.com\r\n"
     . "Content-Length: ". strlen($urlencoded) . "\r\n\r\n";  // length of the string
   
     $fp = fsockopen($server, $port, $errno, $errstr, 10);  // returns file pointer
@@ -35,7 +35,7 @@ function http_post($server, $port, $url, $vars) {
     } 
 
 /* Do a post to the following url and receive a response.*/
-$response = http_post("www.nochex.com", 80, "/apcnet/apc.aspx", $_POST); 
+$response = http_post("ssl://secure.nochex.com", 430, "/apc/apc.aspx", $_POST); 
 
 /* Debug */
 $debug = "IP -> " . $_SERVER['REMOTE_ADDR'] ."\r\n\r\nPOST DATA:\r\n"; 
